@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TCompiler</title>
+    <link rel="stylesheet" href="style.css" />
+    <script
+      type="text/javascript"
+      src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.js"
+    ></script>
+
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis-network.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+  </head>
+  <body>
+    <main>
+      <h2>LTokens</h2>
+      <section class="row">
+        <textarea
+          class="textarea-input-raw code-textarea"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+          translate="no"
+        ></textarea>
+        <textarea
+          class="textarea-output-tokens code-textarea"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+          translate="no"
+          readonly
+        ></textarea>
+      </section>
+      <h2>STokens</h2>
+      <section class="row">
+        <textarea
+          class="textarea-input-tokens code-textarea"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+          translate="no"
+        ></textarea>
+        <textarea
+          class="textarea-output code-textarea"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+          translate="no"
+          readonly
+        ></textarea>
+      </section>
+      <h2>AST</h2>
+      <div class="network node-network"></div>
+      <h2>Constrained</h2>
+      <div class="network node-network-problem"></div>
+      <h2>Unconstrained</h2>
+      <div class="network node-network-problem-unc"></div>
+      <h2>Network</h2>
+      <div class="network node-network-problem-net"></div>
+      <h2>Grammar</h2>
+      <section class="row">
+        <textarea
+          class="textarea-input-grammar code-textarea"
+          spellcheck="false"
+          autocorrect="off"
+          autocapitalize="off"
+          translate="no"
+        ></textarea>
+      </section>
+
+      <div class="network state-network"></div>
+      <div class="tables"></div>
+    </main>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>
