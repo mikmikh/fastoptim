@@ -146,6 +146,15 @@ function main() {
   );
   // ## tables
   const grammarTablesEl = document.querySelector(".grammar-tables");
+  // ## Expand
+  const checkboxExpand = document.querySelector(".checkbox-expand");
+  checkboxExpand.addEventListener("change", () => {
+    const expandableEl = document.querySelector(".expandable");
+    expandableEl.classList.remove("_expanded");
+    if (checkboxExpand.checked) {
+      expandableEl.classList.add("_expanded");
+    }
+  });
 
   // set init values
   textareaProblemInput.value = inputRawStr;

@@ -210,7 +210,6 @@ section {
     border-color 0.15s ease;
 }
 
-
 .debug-output {
   overflow: auto;
   max-height: 200px;
@@ -218,4 +217,20 @@ section {
 
 .scroll {
   overflow: auto;
+}
+
+.label {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 1.2rem;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.expandable {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+.expandable._expanded {
+  max-height: fit-content;
 }
