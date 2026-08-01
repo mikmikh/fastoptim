@@ -158,9 +158,10 @@ function main() {
 
   // listeners
   textareaProblemInput.addEventListener("blur", () => {
+    const problemText = textareaProblemInput.value;
     store.dispatch({
       type: ACTION_TYPE.PROBLEM_TEXT_UPDATE,
-      payload: inputRawStr,
+      payload: problemText,
     });
   });
 

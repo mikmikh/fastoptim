@@ -11,9 +11,8 @@ export function mathFormatNode(root) {
     return `${value}(${cs[0]})`;
   } else if (type === "NUM" || type === "VAR") {
     return `${value}`;
-  } else if (type === "PROBLEM") {
-    cs.splice(1, 0, value);
-    return cs.join("\n");
+  } else if (type === "OPTIM") {
+    return `minimize ${cs[0]} st. ${cs.slice(1).join(' , ')}`;
   } else {
     return `${value}` + cs.join(" ");
   }
