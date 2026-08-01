@@ -215,3 +215,7 @@ section {
   overflow: auto;
   max-height: 200px;
 }
+
+.scroll {
+  overflow: auto;
+}

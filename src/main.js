@@ -1,79 +1,35 @@
 import {
-  JSyntax,
-  JLexer,
-  visualize,
-  LAMBDA,
-  cloneAst,
   Scope,
   walkAst,
   ScopeV2,
   AttributeStorage,
-  TAC,
   JCtx,
 } from "./libs/jgram/jgram.js";
-import { astHandlers } from "./astHandlers.js";
-import { unconstrain } from "./unconstrain.js";
-import { plotNetwork, UncNet } from "./uncNet.js";
+import * as jobslite from "./libs/obslite/index.js";
 
-const grammarStr = `S
-  S -> E :colon CS
-  CS -> CS :comma C
-  CS -> C
-  C -> E :cop E
-  E -> E :top T
-  E -> T
-  T -> T :fop U
-  T -> U
-  U -> :top P
-  U -> P
-  P -> F :pow P
-  P -> F
-  F -> :id
-  F -> :num
-  F -> :lpar E :rpar
-  F -> :id :lpar AL :rpar
-  AL -> AL :comma E
-  AL -> E
-  `;
+import { astHandlers } from "./model/astHandlers.js";
+import { unconstrain } from "./model/unconstrain.js";
+import { plotNetwork, UncNet } from "./model/uncNet.js";
+import {
+  mathGrammarStr,
+  mathSyntax,
+  mathText2ltokens,
+} from "./model/mathGrammar.js";
+import { ACTION_TYPE, selectors, store } from "./store.js";
+import { mathFormatNode } from "./model/mathNodes.js";
+
+function logAction(...args) {
+  console.log("#", ...args);
+}
+function logStep(...args) {
+  console.log("+", ...args);
+}
+function logMinor(...args) {
+  console.log("|", ...args);
+}
 
 const problems = [`x1 + x2 : x1^2 + x2^2 <= 1`];
 const inputRawStr = problems[0];
-
-function ltoken2stoken(ltoken, terminalSet) {
-  const keywords = {
-    ":": ":colon",
-    ",": ":comma",
-    "(": ":lpar",
-    ")": ":rpar",
-    "+": ":top",
-    "-": ":top",
-    "*": ":fop",
-    "/": ":fop",
-    "^": ":pow",
-    "=": ":cop",
-    "<": ":cop",
-    "<=": ":cop",
-    ">": ":cop",
-    ">=": ":cop",
-  };
-  if (keywords[ltoken.value]) {
-    return { name: keywords[ltoken.value], lex: ltoken.value };
-  }
-  if (["ID"].includes(ltoken.type)) {
-    return { name: ":id", lex: ltoken.value };
-  }
-  if (["NUMBER"].includes(ltoken.type)) {
-    return { name: ":num", lex: ltoken.value };
-  }
-  if (["STRING"].includes(ltoken.type)) {
-    return { name: ":str", lex: ltoken.value };
-  }
-  if (ltoken.type === "EOF") {
-    return { name: "$", lex: "" };
-  }
-
-  return { name: ltoken.value, lex: ltoken.value };
-}
 
 function formatNodeJson(node) {
   const repr = node.item?.repr(false) ?? node.token?.lex ?? "error";
@@ -83,50 +39,144 @@ function formatNodeJson(node) {
   return repr;
 }
 
+function formatNodeFn(node) {
+  return `${node.type}: ${node.value}`;
+}
+
 function main() {
-  const state = {
-    syntax: null,
-    ltokens: null,
-    ast: null,
+  const systemEffects = {
+    loggerEffect: (action$, store) =>
+      action$.pipe(
+        jobslite.operators.jmap((action) => {
+          logAction("Action:", action);
+        }),
+      ),
   };
+  store.addEffect(...Object.values(systemEffects));
 
-  // inputs
-  const inputRawEl = document.querySelector(".textarea-input-raw");
-  const outputTokensEl = document.querySelector(".textarea-output-tokens");
-  const inputGrammarEl = document.querySelector(".textarea-input-grammar");
-  const inputTokensEl = document.querySelector(".textarea-input-tokens");
-  const textareaOutputEl = document.querySelector(".textarea-output");
-  // const btnProcessEl = document.querySelector(".btn-process");
+  const syntax$ = store
+    .select(selectors.selectSyntax)
+    .pipe(jobslite.operators.jdistinct());
 
-  inputGrammarEl.addEventListener("blur", () => processGrammar());
-  inputGrammarEl.value = grammarStr;
-  processGrammar();
+  const problemText$ = store
+    .select(selectors.selectProblemText)
+    .pipe(jobslite.operators.jdistinct());
+  const lexTokens$ = store
+    .select(selectors.selectLexTokens)
+    .pipe(jobslite.operators.jdistinct());
+  const initAst$ = store
+    .select(selectors.selectInitAst)
+    .pipe(jobslite.operators.jdistinct());
+  const simplifiedAst$ = store
+    .select(selectors.selectSimplifiedAst)
+    .pipe(jobslite.operators.jdistinct());
+  const unconstrainedAst$ = store
+    .select(selectors.selectUnconstrainedAst)
+    .pipe(jobslite.operators.jdistinct());
+  const network$ = store
+    .select(selectors.selectNetwork)
+    .pipe(jobslite.operators.jdistinct());
 
-  inputRawEl.addEventListener("blur", () => {
-    processRaw();
-    processTokens();
+  syntax$.subscribe({
+    next: () => {
+      handleSyntax();
+    },
   });
-  inputRawEl.value = inputRawStr;
-  processRaw();
 
-  inputTokensEl.addEventListener("blur", () => processTokens());
-  // inputTokensEl.value = inputTokensStr;
-  processTokens();
+  problemText$.subscribe({
+    next: () => {
+      handleProblemInput();
+    },
+  });
+  lexTokens$.subscribe({
+    next: () => {
+      handleLexTokens();
+    },
+  });
+  initAst$.subscribe({
+    next: () => {
+      handleInitAst();
+    },
+  });
+  simplifiedAst$.subscribe({
+    next: () => {
+      handleSimplifiedAst();
+    },
+  });
+  unconstrainedAst$.subscribe({
+    next: () => {
+      handleUnconstrainedAst();
+    },
+  });
+  network$.subscribe({
+    next: () => {
+      handleNetwork();
+    },
+  });
 
-  function processGrammar() {
-    const tablesEl = document.querySelector(".tables");
-    tablesEl.innerHTML = "";
+  // # elements
+  // ## textarea input
+  const textareaProblemInput = document.querySelector(
+    ".textarea-problem-input",
+  );
+  // ## textarea out
+  const textareaProblemConstrained = document.querySelector(
+    ".textarea-problem-constrained",
+  );
+  const textareaProblemUnconstrained = document.querySelector(
+    ".textarea-problem-unconstrained",
+  );
+  // ## textarea debug
+  const textareaLexTokens = document.querySelector(".textarea-lex-tokens");
+  const textareaSyntaxTokens = document.querySelector(
+    ".textarea-syntax-tokens",
+  );
+  const textareaGrammar = document.querySelector(".textarea-grammar");
+  // ## network vis
+  const nodeNetworkAstEl = document.querySelector(".node-network-ast");
+  const nodeNetworkAstSimplifiedEl = document.querySelector(
+    ".node-network-ast-simplified",
+  );
+  const nodeNetworkAstUnconstrainedEl = document.querySelector(
+    ".node-network-ast-unconstrained",
+  );
+  const nodeNetworkGradEl = document.querySelector(".node-network-grad");
+  const nodeNetworkGrammarStatesEl = document.querySelector(
+    ".node-network-grammar-states",
+  );
+  // ## tables
+  const grammarTablesEl = document.querySelector(".grammar-tables");
 
-    const grammarText = inputGrammarEl.value;
-    state.syntax = null;
-    try {
-      state.syntax = new JSyntax(grammarText);
-    } catch (e) {
-      console.error(e);
-    }
-    if (!state.syntax) {
+  // set init values
+  textareaProblemInput.value = inputRawStr;
+
+  initGrammar();
+  store.dispatch({
+    type: ACTION_TYPE.PROBLEM_TEXT_UPDATE,
+    payload: inputRawStr,
+  });
+
+  // listeners
+  textareaProblemInput.addEventListener("blur", () => {
+    store.dispatch({
+      type: ACTION_TYPE.PROBLEM_TEXT_UPDATE,
+      payload: inputRawStr,
+    });
+  });
+
+  function initGrammar() {
+    logStep("initGrammar");
+    const syntax = mathSyntax;
+    store.dispatch({ type: ACTION_TYPE.SYNTAX_UPDATE, payload: syntax });
+  }
+
+  function handleSyntax() {
+    logStep("handleSyntax");
+    const { syntax } = store.state;
+    if (!syntax) {
       return;
     }
+
     const {
       grammar,
       firstSet,
@@ -137,53 +187,58 @@ function main() {
       transitions,
       actionGoto,
       conflicts,
-    } = state.syntax;
+    } = syntax;
 
-    state.syntax.renderTables(tablesEl);
+    textareaGrammar.value = mathGrammarStr;
 
-    const networkEl = document.querySelector(".state-network");
-    state.syntax.renderNetworkStates(networkEl);
+    grammarTablesEl.innerHTML = "";
+    syntax.renderTables(grammarTablesEl);
+
+    syntax.renderNetworkStates(nodeNetworkGrammarStatesEl);
   }
 
-  function processRaw() {
-    const rawText = inputRawEl.value;
-    const lexer = new JLexer(rawText);
-    const ltokensRaw = [...lexer.parse()];
-    const ltokens = ltokensRaw.map((lt) =>
-      ltoken2stoken(lt, state.syntax.terminalSet),
-    );
-    state.ltokens = ltokens;
-    console.log("ltokens", ltokens);
-    outputTokensEl.value = JSON.stringify(ltokens);
-
-    inputTokensEl.value = ltokens.map((lt) => lt.name).join(" ");
-  }
-
-  function processTokens() {
-    textareaOutputEl.value = "";
-    if (!state.syntax) {
-      textareaOutputEl.value = "Grammar Error";
+  function handleProblemInput() {
+    logStep("handleProblemInput");
+    const { problemText } = store.state;
+    if (!problemText) {
       return;
     }
 
-    const nodes = state.syntax.buildAst(state.ltokens);
-    console.log("nodes", nodes);
+    const lexTokens = mathText2ltokens(problemText);
+    logMinor("lexTokens", lexTokens);
 
-    state.ast = nodes[0];
-    const nodesStr = JSON.stringify(formatNodeJson(nodes[0]), null, 1);
-    textareaOutputEl.value = nodesStr;
-
-    const networkEl = document.querySelector(".node-network");
-    state.syntax.renderNetworkAst(state.ast, networkEl);
-
-    // flattenAst();
-    interpret();
+    store.dispatch({ type: ACTION_TYPE.LEX_TOKENS_UPDATE, payload: lexTokens });
   }
 
-  function interpret() {
-    if (!state.ast) {
+  function handleLexTokens() {
+    logStep("handleLexTokens");
+    const { lexTokens, syntax } = store.state;
+    if (!lexTokens || !syntax) {
       return;
     }
+
+    textareaLexTokens.value = JSON.stringify(lexTokens);
+
+    const nodes = syntax.buildAst(lexTokens);
+    logMinor("nodes", nodes);
+
+    const initAst = nodes[0];
+    logMinor("initAst", initAst);
+    // dispatch initAst
+    store.dispatch({ type: ACTION_TYPE.INIT_AST_UPDATE, payload: initAst });
+  }
+
+  function handleInitAst() {
+    logStep("handleInitAst");
+    const { initAst, syntax } = store.state;
+    if (!initAst || !syntax) {
+      return;
+    }
+
+    const nodesStr = JSON.stringify(formatNodeJson(initAst), null, 1);
+    textareaSyntaxTokens.value = nodesStr;
+    syntax.renderNetworkAst(initAst, nodeNetworkAstEl);
+
     const scope = new ScopeV2();
     const attributes = new AttributeStorage();
     const jctx = new JCtx(attributes);
@@ -192,34 +247,78 @@ function main() {
       attributes,
       jctx,
     };
-    walkAst(state.ast, astHandlers, ctx);
-    const jjnode = jctx.getNodeCtx(state.ast);
-    const problem_node = jjnode.at("S")["node"];
-    console.log("problem_node", problem_node);
-    // const problemAstData = {
-    //   objective: jjnode.at("S")["objective"],
-    //   constraints: jjnode.at("S")["constraints"],
-    // };
-    // console.log("problemAstData", problemAstData);
+    walkAst(initAst, astHandlers, ctx);
+    const jjnode = jctx.getNodeCtx(initAst);
 
-    const formatNode = (node) => `${node.type}: ${node.value}`;
-    const problemNetworkEl = document.querySelector(".node-network-problem");
-    state.syntax.renderNetworkAst(problem_node, problemNetworkEl, formatNode);
+    const simplifiedAst = jjnode.at("S")["node"];
+    logMinor("simplifiedAst", simplifiedAst);
+    // dispatch simplifiedAst
+    store.dispatch({
+      type: ACTION_TYPE.SIMPLIFIED_AST_UPDATE,
+      payload: simplifiedAst,
+    });
+  }
 
-    const unc_node = unconstrain(problem_node);
-    const problemNetworkUncEl = document.querySelector(
-      ".node-network-problem-unc",
+  function handleSimplifiedAst() {
+    logStep("handleSimplifiedAst");
+    const { simplifiedAst, syntax } = store.state;
+    if (!simplifiedAst || !syntax) {
+      return;
+    }
+
+    const constrainedFmt = mathFormatNode(simplifiedAst);
+    logMinor("constrainedFmt", constrainedFmt);
+    textareaProblemConstrained.value = constrainedFmt;
+
+    syntax.renderNetworkAst(
+      simplifiedAst,
+      nodeNetworkAstSimplifiedEl,
+      formatNodeFn,
     );
-    state.syntax.renderNetworkAst(unc_node, problemNetworkUncEl, formatNode);
 
-    const uncNet = new UncNet();
-    const resNode = uncNet.build(unc_node);
-    console.log("uncNet", uncNet);
-    console.log("resNode", resNode);
+    const unconstrainedAst = unconstrain(simplifiedAst);
+    logMinor("unconstrainedAst", unconstrainedAst);
+    // dispatch unconstrainedAst
+    store.dispatch({
+      type: ACTION_TYPE.UNCONSTRAINED_AST_UPDATE,
+      payload: unconstrainedAst,
+    });
+  }
 
-    const params = uncNet.parameters;
-    const netEl = document.querySelector(".node-network-problem-net");
-    plotNetwork(resNode, params, netEl);
+  function handleUnconstrainedAst() {
+    logStep("handleUnconstrainedAst");
+    const { unconstrainedAst, syntax } = store.state;
+    if (!unconstrainedAst || !syntax) {
+      return;
+    }
+
+    const unconstrainedFmt = mathFormatNode(unconstrainedAst);
+    logMinor("unconstrainedFmt", unconstrainedFmt);
+    textareaProblemUnconstrained.value = unconstrainedFmt;
+
+    syntax.renderNetworkAst(
+      unconstrainedAst,
+      nodeNetworkAstUnconstrainedEl,
+      formatNodeFn,
+    );
+
+    const network = new UncNet();
+    network.build(unconstrainedAst);
+    logMinor("network", network);
+    // dispatch network
+    store.dispatch({ type: ACTION_TYPE.NETWORK_UPDATE, payload: network });
+  }
+  function handleNetwork() {
+    logStep("handleNetwork");
+    const { network } = store.state;
+    if (!network) {
+      return;
+    }
+
+    logMinor("network", network);
+    logMinor("network.outputNode", network.outputNode);
+    const params = network.parameters;
+    plotNetwork(network.outputNode, params, nodeNetworkGradEl);
   }
 }
 

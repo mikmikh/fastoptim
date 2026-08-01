@@ -18,63 +18,100 @@
   </head>
   <body>
     <main>
-      <h2>LTokens</h2>
+      <h2>Optim</h2>
       <section class="row">
         <textarea
-          class="textarea-input-raw code-textarea"
-          spellcheck="false"
-          autocorrect="off"
-          autocapitalize="off"
-          translate="no"
-        ></textarea>
-        <textarea
-          class="textarea-output-tokens code-textarea"
-          spellcheck="false"
-          autocorrect="off"
-          autocapitalize="off"
-          translate="no"
-          readonly
-        ></textarea>
-      </section>
-      <h2>STokens</h2>
-      <section class="row">
-        <textarea
-          class="textarea-input-tokens code-textarea"
-          spellcheck="false"
-          autocorrect="off"
-          autocapitalize="off"
-          translate="no"
-        ></textarea>
-        <textarea
-          class="textarea-output code-textarea"
-          spellcheck="false"
-          autocorrect="off"
-          autocapitalize="off"
-          translate="no"
-          readonly
-        ></textarea>
-      </section>
-      <h2>AST</h2>
-      <div class="network node-network"></div>
-      <h2>Constrained</h2>
-      <div class="network node-network-problem"></div>
-      <h2>Unconstrained</h2>
-      <div class="network node-network-problem-unc"></div>
-      <h2>Network</h2>
-      <div class="network node-network-problem-net"></div>
-      <h2>Grammar</h2>
-      <section class="row">
-        <textarea
-          class="textarea-input-grammar code-textarea"
+          class="code-textarea textarea-problem-input"
           spellcheck="false"
           autocorrect="off"
           autocapitalize="off"
           translate="no"
         ></textarea>
       </section>
-
-      <div class="network state-network"></div>
-      <div class="tables"></div>
+      <section class="col">
+        <p>Constrained</p>
+        <section class="row">
+          <textarea
+            class="code-textarea textarea-problem-constrained"
+            spellcheck="false"
+            autocorrect="off"
+            autocapitalize="off"
+            translate="no"
+            readonly
+          ></textarea>
+        </section>
+        <p>Unconstrained</p>
+        <section class="row">
+          <textarea
+            class="code-textarea textarea-problem-unconstrained"
+            spellcheck="false"
+            autocorrect="off"
+            autocapitalize="off"
+            translate="no"
+            readonlyF
+          ></textarea>
+        </section>
+      </section>
+      <div>
+        <h2>Details</h2>
+        <section class="col">
+          <p>Lex tokens</p>
+          <textarea
+            class="code-textarea textarea-lex-tokens"
+            spellcheck="false"
+            autocorrect="off"
+            autocapitalize="off"
+            translate="no"
+            readonly
+          ></textarea>
+        </section>
+        <section class="col">
+          <p>Syntax tokens</p>
+          <textarea
+            class="code-textarea textarea-syntax-tokens"
+            spellcheck="false"
+            autocorrect="off"
+            autocapitalize="off"
+            translate="no"
+            readonly
+          ></textarea>
+        </section>
+        <section class="col">
+          <p>Initial AST</p>
+          <div class="network node-network-ast"></div>
+        </section>
+        <section class="col">
+          <p>Simplified AST</p>
+          <div class="network node-network-ast-simplified"></div>
+        </section>
+        <section class="col">
+          <p>Unconstrained AST</p>
+          <div class="network node-network-ast-unconstrained"></div>
+        </section>
+        <section class="col">
+          <p>Network to optimize</p>
+          <div class="network node-network-grad"></div>
+        </section>
+        <section class="col">
+          <p>Grammar</p>
+          <textarea
+            class="code-textarea textarea-grammar"
+            spellcheck="false"
+            autocorrect="off"
+            autocapitalize="off"
+            translate="no"
+            readonly
+          ></textarea>
+        </section>
+        <section class="col">
+          <p>Grammar states</p>
+          <div class="network node-network-grammar-states"></div>
+        </section>
+        <section class="col scroll">
+          <p>Grammar tables</p>
+          <div class="grammar-tables"></div>
+        </section>
+      </div>
     </main>
     <script type="module" src="src/main.js"></script>
   </body>
