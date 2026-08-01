@@ -53,7 +53,40 @@
         </section>
       </section>
       <section class="col">
-        <button class="btn-learn">learn</button>
+        <section class="row">
+          <label
+            >p:
+            <input
+              type="number"
+              min="0.0001"
+              max="0.1"
+              value="0.01"
+              class="input-p"
+          /></label>
+          <label>
+            Steps:
+            <input
+              type="number"
+              min="1"
+              max="1000"
+              value="32"
+              class="input-steps"
+            />
+          </label>
+          <button class="btn-optimize">optimize</button>
+          <button class="btn-clear">clear</button>
+        </section>
+        <section class="row">
+          <label
+            >min:
+            <input type="number" min="0" value="0" class="input-params-min"
+          /></label>
+          <label>
+            max:
+            <input type="number" min="0" value="1" class="input-params-max" />
+          </label>
+          <button class="btn-randomize">randomize</button>
+        </section>
         <section class="col learning-container"></section>
       </section>
 

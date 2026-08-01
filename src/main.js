@@ -157,8 +157,20 @@ function main() {
     }
   });
   // ## learning
-  const btnLearn = document.querySelector(".btn-learn");
+  const inputPEl = document.querySelector(".input-p");
+  const inputStepsEl = document.querySelector(".input-steps");
+  const btnOptimize = document.querySelector(".btn-optimize");
+  const btnClear = document.querySelector(".btn-clear");
+  const inputParamsMinEl = document.querySelector(".input-params-min");
+  const inputParamsMaxEl = document.querySelector(".input-params-max");
+  const btnRandomize = document.querySelector(".btn-randomize");
   const learningContainerEl = document.querySelector(".learning-container");
+
+  function logLearning(data) {
+    const el = document.createElement("div");
+    el.textContent = JSON.stringify(data);
+    learningContainerEl.appendChild(el);
+  }
 
   // set init values
   textareaProblemInput.value = inputRawStr;
@@ -178,8 +190,43 @@ function main() {
     });
   });
 
-  btnLearn.addEventListener("click", () => {
+  const pMinMax = [0.0001, 0.1];
+  inputPEl.min = pMinMax[0];
+  inputPEl.max = pMinMax[1];
+  inputPEl.value = 0.01;
+  inputPEl.addEventListener("change", () => {
+    inputPEl.value = Math.min(
+      pMinMax[1],
+      Math.max(pMinMax[0], +inputPEl.value),
+    );
+  });
+  const stepsMinMax = [1, 1000];
+  inputStepsEl.min = stepsMinMax[0];
+  inputStepsEl.max = stepsMinMax[1];
+  inputStepsEl.value = 32;
+  inputStepsEl.addEventListener("change", () => {
+    inputStepsEl.value = Math.min(
+      stepsMinMax[1],
+      Math.max(stepsMinMax[0], +inputStepsEl.value),
+    );
+  });
+  btnOptimize.addEventListener("click", () => {
     handleLearn();
+  });
+  btnClear.addEventListener("click", () => {
+    learningContainerEl.innerHTML = "";
+  });
+
+  inputParamsMinEl.addEventListener("change", () => {
+    inputParamsMinEl.value = Math.max(0, +inputParamsMinEl.value);
+  });
+  inputParamsMinEl.value = 0;
+  inputParamsMaxEl.addEventListener("change", () => {
+    inputParamsMinEl.value = Math.max(0, +inputParamsMinEl.value);
+  });
+  inputParamsMaxEl.value = 1;
+  btnRandomize.addEventListener("click", () => {
+    handleNetworkRandomize();
   });
 
   function initGrammar() {
@@ -338,17 +385,38 @@ function main() {
     const params = network.parameters;
     plotNetwork(network.outputNode, params, nodeNetworkGradEl);
   }
+
+  function _getNetworkParams(network) {
+    const name2paramValue = {};
+    Object.entries(network.name2weight).forEach(([name, weightNode]) => {
+      name2paramValue[name] = weightNode.data;
+    });
+    return name2paramValue;
+  }
+  function handleNetworkRandomize() {
+    logStep("handleNetworkRandomize");
+    const { network } = store.state;
+    const params = network.parameters;
+    const min = +inputParamsMinEl.value;
+    const max = +inputParamsMaxEl.value;
+    params.forEach((p) => {
+      p.data = Math.random() * (max - min) + min;
+    });
+    const name2paramValue = _getNetworkParams(network);
+
+    logMinor("name2paramValue", name2paramValue);
+    learningContainerEl.innerHTML = "";
+    logLearning(name2paramValue);
+
+    const newNet = UncNet.from(network);
+    store.dispatch({ type: ACTION_TYPE.NETWORK_UPDATE, payload: newNet });
+  }
   function handleLearn() {
     logStep("handleLearn");
     const { network } = store.state;
     const learningRate = 0.01;
 
     learningContainerEl.innerHTML = "";
-    function logLearning(data) {
-      const el = document.createElement("div");
-      el.textContent = JSON.stringify(data);
-      learningContainerEl.appendChild(el);
-    }
 
     // inputs = [p]
     // weights = [x1,x2,...,xn]
@@ -364,8 +432,9 @@ function main() {
     const params = network.parameters;
     logMinor("params", params);
     const optim = new jml.JSGDOptimizer(params, 0.01);
-    network.p.data = 0.01; // input (only p)
-    for (let ei = 0; ei < 8; ei++) {
+    network.p.data = +inputPEl.value; //0.01; // input (only p)
+    const steps = +inputStepsEl.value;
+    for (let ei = 0; ei < steps; ei++) {
       // zero grad
       forwardOrder.forEach((node) => {
         node._grad = 0;
@@ -386,10 +455,10 @@ function main() {
       // update weights
       optim.step();
     }
-    const name2paramValue = {};
-    Object.entries(network.name2weight).forEach(([name, weightNode]) => {
-      name2paramValue[name] = weightNode.data;
-    });
+    const name2paramValue = _getNetworkParams(network);
+    // Object.entries(network.name2weight).forEach(([name, weightNode]) => {
+    //   name2paramValue[name] = weightNode.data;
+    // });
     logMinor("name2paramValue", name2paramValue);
     logLearning(name2paramValue);
 
