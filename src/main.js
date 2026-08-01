@@ -6,6 +6,7 @@ import {
   JCtx,
 } from "./libs/jgram/jgram.js";
 import * as jobslite from "./libs/obslite/index.js";
+import * as jml from "./libs/jgrad/jgrad.js";
 
 import { astHandlers } from "./model/astHandlers.js";
 import { unconstrain } from "./model/unconstrain.js";
@@ -155,6 +156,9 @@ function main() {
       expandableEl.classList.add("_expanded");
     }
   });
+  // ## learning
+  const btnLearn = document.querySelector(".btn-learn");
+  const learningContainerEl = document.querySelector(".learning-container");
 
   // set init values
   textareaProblemInput.value = inputRawStr;
@@ -172,6 +176,10 @@ function main() {
       type: ACTION_TYPE.PROBLEM_TEXT_UPDATE,
       payload: problemText,
     });
+  });
+
+  btnLearn.addEventListener("click", () => {
+    handleLearn();
   });
 
   function initGrammar() {
@@ -329,6 +337,64 @@ function main() {
     logMinor("network.outputNode", network.outputNode);
     const params = network.parameters;
     plotNetwork(network.outputNode, params, nodeNetworkGradEl);
+  }
+  function handleLearn() {
+    logStep("handleLearn");
+    const { network } = store.state;
+    const learningRate = 0.01;
+
+    learningContainerEl.innerHTML = "";
+    function logLearning(data) {
+      const el = document.createElement("div");
+      el.textContent = JSON.stringify(data);
+      learningContainerEl.appendChild(el);
+    }
+
+    // inputs = [p]
+    // weights = [x1,x2,...,xn]
+    // loss = [outputNode]
+    const lossNode = network.outputNode.pow(2);
+    logMinor("lossNode", lossNode);
+    const topo = jml.createTopoOrder(lossNode);
+    const forwardOrder = topo;
+    const backwardOrder = [...topo].reverse();
+    logMinor("forwardOrder", forwardOrder);
+    logMinor("backwardOrder", backwardOrder);
+
+    const params = network.parameters;
+    logMinor("params", params);
+    const optim = new jml.JSGDOptimizer(params, 0.01);
+    network.p.data = 0.01; // input (only p)
+    for (let ei = 0; ei < 8; ei++) {
+      // zero grad
+      forwardOrder.forEach((node) => {
+        node._grad = 0;
+      });
+      // forward
+      forwardOrder.forEach((node) => {
+        node.forward();
+      });
+      logMinor("lossNode", lossNode);
+      logLearning({ loss: lossNode.data, value: network.outputNode.data });
+      // backward
+      backwardOrder.forEach((node, i) => {
+        if (i === 0) {
+          node._grad = 1;
+        }
+        node.backward(node._grad);
+      });
+      // update weights
+      optim.step();
+    }
+    const name2paramValue = {};
+    Object.entries(network.name2weight).forEach(([name, weightNode]) => {
+      name2paramValue[name] = weightNode.data;
+    });
+    logMinor("name2paramValue", name2paramValue);
+    logLearning(name2paramValue);
+
+    const newNet = UncNet.from(network);
+    store.dispatch({ type: ACTION_TYPE.NETWORK_UPDATE, payload: newNet });
   }
 }
 

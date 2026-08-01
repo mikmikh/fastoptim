@@ -10,6 +10,13 @@ export class UncNet {
     this.name2weight = {};
     this.outputNode = null;
   }
+  static from(other) {
+    const res = new UncNet();
+    res.p = other.p;
+    res.name2weight = other.name2weight;
+    res.outputNode = other.outputNode;
+    return res;
+  }
   get parameters() {
     return Object.values(this.name2weight);
   }
@@ -35,7 +42,7 @@ export class UncNet {
         if (op2name[value]) {
           gnode = new JNode(cnodes, op2name[value]);
         } else if (value === "^") {
-          gnode = new JNode([cnodes[0]], "pow", { n: +cnodes[1].value });
+          gnode = new JNode([cnodes[0]], "pow", { n: +children[1].value });
         }
       } else if (type === "UN_OP" && value === "-") {
         gnode = new JNode(cnodes, "neg");
@@ -65,7 +72,6 @@ export class UncNet {
   }
 }
 
-
 function network2vis(root, params) {
   const paramSet = new Set(params);
   const nodesArr = [];
@@ -82,6 +88,9 @@ function network2vis(root, params) {
     }
     labelParts.push(`grad: ${node._grad}`);
     labelParts.push(`data: ${node.data}`);
+    if (node._params) {
+      labelParts.push(`params: ${JSON.stringify(node._params)}`);
+    }
     const label = labelParts.join("\n");
     const n = {
       id: nodeIdx++,

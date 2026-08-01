@@ -234,3 +234,8 @@ section {
 .expandable._expanded {
   max-height: fit-content;
 }
+
+
+.learning-container > div {
+  overflow: auto;
+}
